@@ -17,3 +17,5 @@
 
 ## Testing:
 - Early testing of the command line parsing was feeding in random amounts of arguments with random values to make sure we were only accepting command line syntax that would enable our programs to run smoothly. We tested number of arguments, types of arguments, and default values on the client-side port selection.
+- In order to test the segmentation of packets, we used the following input-building command line call to fill a file we could then feed in through stdin.
+  - python -c "print 'A' * 1501" > tester.txt
