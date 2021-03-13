@@ -1,7 +1,7 @@
 # Simple-Transport-Porotocol
 
 ## High-Level Approach:
-- Initial setup and "reconaissance" of the soruce code took us a day or two, and after we were comfortable with what this assignment was going to look like, we started in.
+- Initial setup and "reconaissance" of the source code took us a day or two, and after we were comfortable with what this assignment was going to look like, we started in.
 - Our first step was to review how TCP/UDP handled issues on the network for the following conditions:
   - bandwidth
   - latency
@@ -9,7 +9,7 @@
   - drop
   - reorder
   - duplicate
-- After we researched these methods and attended office hours a few times, we decided to structure our packet headers in a way where we could assign sequence numbers, offsets, and store what we have sent and what acks have been recieved on the server side. In thsi way, we thought we could tackle drops, reordering, and duplicate packets first!
+- After we researched these methods and attended office hours a few times, we decided to structure our packet headers in a way where we could assign sequence numbers, offsets, and store what we have sent and what acks have been recieved on the server side. In this way, we thought we could tackle drops, reordering, and duplicate packets first!
 - Before starting in on the packet format, however, we tackled the "Program Specifications" portion in the assignment description to make sure it was set to handle the command line inputs correctly. 
 
 ## Challenges Faced:
