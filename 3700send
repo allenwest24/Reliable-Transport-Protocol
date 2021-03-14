@@ -49,13 +49,11 @@ def send_next_packet(packets_sent):
   if (len(data) > 0):
     msg = json.dumps({"sequence": SEQUENCE, "data": data, "ack": False, "eof": False})
     SEQUENCE += len(data)
-    if len(data) == 1:
-      print(data)
     if sock.sendto(msg, dest) < len(msg):
       log("[error] unable to fully send packet")
     else:
       log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
-      packets_sent[SEQUENCE] = data
+      packets_sent[SEQUENCE] = msg
     return True
   else:
     return False
@@ -81,7 +79,6 @@ while True:
     (data, addr) = result
     try:
       decoded = json.loads(data)
-
       # If there is an ack, send next packet
       if decoded['ack'] == SEQUENCE:
         log("[recv ack] " + str(SEQUENCE))
@@ -98,6 +95,34 @@ while True:
     #log("[error] timeout")
     #sys.exit(-1)
 
+no_acks_back = []
+# Assemble a list of unreceived acks
+for key in packets_sent:
+  if not (str(key) in acks_recvd):
+    no_acks_back.append(key)
+print("Didn't receieve", no_acks_back)
+
+# while len(that_list) > 0:
+#   send and look for recv and remove from taht_list if ack recvd
+while len(no_acks_back) > 0:
+  for ii in no_acks_back:
+    if sock.sendto(packets_sent[str(ii)], dest) < len(packets_sent[str(ii)]):
+      log("[error] unable to fully send packet")
+    else:
+      log("[send data] " + str(ii) + " (" + str(len(packets_sent[ii]["data"])) + ")")
+      # redo the select.select and if successful,
+      # remove from noackback
+      log("ABOUT TO SLEEP")
+      result = ""
+      ready = select.select([sock], [], [], .2)
+      if ready[0]:
+        result = sock.recvfrom(MSG_SIZE)
+        (data, addr) = result
+        try:
+          decoded = json.loads(data)
+          if decoded['ack'] == ii:
+            log("[recv ack] " + str(ii))
+            del no_acks_back[no_acks_back.index(ii)]
 sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
 print(acks_recvd)
 print(packets_sent)
