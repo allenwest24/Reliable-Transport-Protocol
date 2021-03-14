@@ -60,7 +60,7 @@ while True:
         # You will need to do much more here
         log("[recv data] " + str(decoded['sequence']) + " (" + str(len(decoded['data'])) + ") ACCEPTED (in-order)")
         sys.stdout.write(decoded['data'])
-
+        
       # Send back an ack to the sender
       msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])})
       log("ABOUT TO SEND " + msg)
