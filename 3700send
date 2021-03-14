@@ -92,8 +92,9 @@ while True:
   else:
     log("[error] timeout")
     sys.exit(-1)
+  send_next_packet(packets_sent)
 
 sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
-print(acks_recvd)
-print(packets_sent)
+print("acks received ", acks_recvd)
+print("packets sent ", packets_sent)
 sys.exit(0)
