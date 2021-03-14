@@ -73,31 +73,32 @@ send_next_packet(packets_sent)
 # Now read in data, send packets
 while True:
   log("ABOUT TO SLEEP")
-  ready = select.select([sock],[], [], .2)
   result = ""
+  ready = select.select([sock], [], [], .2)
   if ready[0]:
     result = sock.recvfrom(MSG_SIZE)
-  
-    if result:
-      (data, addr) = result
-      try:
-        decoded = json.loads(data)
+  #if result:
+    (data, addr) = result
+    try:
+      decoded = json.loads(data)
 
-        # If there is an ack, send next packet
-        if decoded['ack'] == SEQUENCE:
-          log("[recv ack] " + str(SEQUENCE))
-          acks_recvd.append(str(SEQUENCE))
+      # If there is an ack, send next packet
+      if decoded['ack'] == SEQUENCE:
+        log("[recv ack] " + str(SEQUENCE))
+        acks_recvd.append(str(SEQUENCE))
 
-          # Try to send next packet; break if no more data
-          if (not send_next_packet(packets_sent)):
-            break
-      except (ValueError, KeyError, TypeError):
-        log("[recv corrupt packet]")
-    else:
-      log("[error] timeout")
-      sys.exit(-1)
+        # Try to send next packet; break if no more data
+        if (not send_next_packet(packets_sent)):
+          break
+    except (ValueError, KeyError, TypeError):
+      log("[recv corrupt packet]")
+  else:
+    if (not send_next_packet(packets_sent)):
+      break
+    #log("[error] timeout")
+    #sys.exit(-1)
 
 sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
-print("acks received ", acks_recvd)
-print("packets sent ", packets_sent)
+print(acks_recvd)
+print(packets_sent)
 sys.exit(0)
