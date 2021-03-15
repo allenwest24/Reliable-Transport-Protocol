@@ -7,6 +7,7 @@ import datetime
 import select
 import json
 
+# Defining constants.
 MSG_SIZE = 1500
 DATA_SIZE = 1000
 # Prev value was 30
@@ -35,25 +36,27 @@ else:
 
 # Set up the socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# TODO: Ask prof if this counts as exiting gracefully. lol.
 sock.settimeout(TIMEOUT)
 
+# Log to stderr
 def log(string):
   sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
+# Send the next packet by increasing sequence numbers.
 def send_next_packet(packets_sent):
   global SEQUENCE
 
-  # TODO: Ask prof if we want to timeout after waiting for input from stdin for a while.
   data = sys.stdin.read(DATA_SIZE)
   if (len(data) > 0):
+    msg_as_json = {"sequence": SEQUENCE, "data": data, "ack": False, "eof": False}
     msg = json.dumps({"sequence": SEQUENCE, "data": data, "ack": False, "eof": False})
     SEQUENCE += len(data)
     if sock.sendto(msg, dest) < len(msg):
       log("[error] unable to fully send packet")
     else:
       log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
-      packets_sent[SEQUENCE] = msg
+      # We want to keep track of all the packets we sent so we can index them if their respective ack wasnt receieved.
+      packets_sent[SEQUENCE] = msg_as_json
     return True
   else:
     return False
@@ -72,6 +75,8 @@ send_next_packet(packets_sent)
 while True:
   log("ABOUT TO SLEEP")
   result = ""
+
+  # See if there is an ack coming in, and log it if we get one.
   ready = select.select([sock], [], [], .2)
   if ready[0]:
     result = sock.recvfrom(MSG_SIZE)
@@ -102,16 +107,15 @@ for key in packets_sent:
     no_acks_back.append(key)
 print("Didn't receieve", no_acks_back)
 
-# while len(that_list) > 0:
-#   send and look for recv and remove from taht_list if ack recvd
+# While we still have sequnce numbers that we haven't received an ack for try to send.
 while len(no_acks_back) > 0:
+  print(no_acks_back)
   for ii in no_acks_back:
-    if sock.sendto(packets_sent[str(ii)], dest) < len(packets_sent[str(ii)]):
+    if sock.sendto(json.dumps(packets_sent[ii]), dest) < len(json.dumps(packets_sent[ii])):
       log("[error] unable to fully send packet")
     else:
       log("[send data] " + str(ii) + " (" + str(len(packets_sent[ii]["data"])) + ")")
-      # redo the select.select and if successful,
-      # remove from noackback
+      # Redo the select.select and if successful, remove from noackback
       log("ABOUT TO SLEEP")
       result = ""
       ready = select.select([sock], [], [], .2)
@@ -123,7 +127,17 @@ while len(no_acks_back) > 0:
           if decoded['ack'] == ii:
             log("[recv ack] " + str(ii))
             del no_acks_back[no_acks_back.index(ii)]
-sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
-print(acks_recvd)
-print(packets_sent)
+        except (ValueError, KeyError, TypeError):
+          log("[recv corrupt packet]")
+
+# Make sure they get the eof.
+done = False
+while not done:
+  sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
+  final_ready = select.select([sock], [], [], .2)
+  if final_ready[0]:
+    final_result = sock.recvfrom(MSG_SIZE)
+    if final_result[0] == "BYE":
+       done = True
+
 sys.exit(0)
