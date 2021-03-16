@@ -11,7 +11,7 @@ import json
 MSG_SIZE = 1500
 # TODO: Decide on best value for DATA_SIZE.
 # This was decresed to 400 to get around the json crap.
-DATA_SIZE = 400
+DATA_SIZE = 500
 # Prev value was 30
 TIMEOUT = 5
 SEQUENCE = 0
@@ -73,15 +73,20 @@ packets_sent = {}
 # Send first packet
 send_next_packet(packets_sent)
 
+#window = 4
 # Now read in data, send packets
 while True:
   log("ABOUT TO SLEEP")
   result = ""
-
+  #ready = []
+  #ready.append(False)
+  #window -= 1
   # See if there is an ack coming in, and log it if we get one.
+  #if window == 0:
   ready = select.select([sock], [], [], .2)
   if ready[0]:
     result = sock.recvfrom(MSG_SIZE)
+    print(result)
   #if result:
     (data, addr) = result
     try:
@@ -134,9 +139,12 @@ while len(no_acks_back) > 0:
 
 # Make sure they get the eof.
 done = False
-while not done:
+c = 0
+while (not done) or (c == 6):
+  c += 1
   sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}), dest)
   final_ready = select.select([sock], [], [], .2)
+  #out = proc.stdout.readline()
   if final_ready[0]:
     final_result = sock.recvfrom(MSG_SIZE)
     if final_result[0] == "BYE":
