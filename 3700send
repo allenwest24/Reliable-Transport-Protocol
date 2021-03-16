@@ -9,7 +9,9 @@ import json
 
 # Defining constants.
 MSG_SIZE = 1500
-DATA_SIZE = 1000
+# TODO: Decide on best value for DATA_SIZE.
+# This was decresed to 400 to get around the json crap.
+DATA_SIZE = 400
 # Prev value was 30
 TIMEOUT = 5
 SEQUENCE = 0
@@ -105,11 +107,11 @@ no_acks_back = []
 for key in packets_sent:
   if not (str(key) in acks_recvd):
     no_acks_back.append(key)
-print("Didn't receieve", no_acks_back)
+#print("Didn't receieve", no_acks_back)
 
 # While we still have sequnce numbers that we haven't received an ack for try to send.
 while len(no_acks_back) > 0:
-  print(no_acks_back)
+  #print(no_acks_back)
   for ii in no_acks_back:
     if sock.sendto(json.dumps(packets_sent[ii]), dest) < len(json.dumps(packets_sent[ii])):
       log("[error] unable to fully send packet")
