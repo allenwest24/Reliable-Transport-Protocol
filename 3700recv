@@ -29,13 +29,12 @@ elif (len(sys.argv) == 1):
 else:
   sys.exit("Usage: ./3700recv <port>")
 
-
 # Set up the socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 sock.settimeout(TIMEOUT)
 
-# set up dictionary
+# Set up dictionary.
 data_dict = {}
 sequence = []
 
@@ -49,29 +48,29 @@ while True:
   # If nothing is ready, we hit the timeout
   if result:
     (data, addr) = result
-
     try:
+      #data.replace('\u', '\\u')
+      #data.decode('utf-8', errors='ignore').encode('utf-8')
       decoded = json.loads(data)
-
       # If the EOF flag is set, exit
       if (decoded['eof']):
         log("[completed]")
         final_answer = ""
-	# orders the packets using sequence number
-        for i in sorted (data_dict) :
-	  final_answer += str(data_dict[i])
-	#prints out the data in the packets as one large output
-	print("final answer ", final_answer)
+        # Order the packets using sequence number.
+        for ii in sorted (data_dict):
+          final_answer += str(data_dict[ii])
+        # Print out the data in the packets as one large output.
+        #print("Final asnwer ", final_answer[:-1])
+        sys.stdout.write(final_answer)
         sock.sendto("BYE", addr)
         sys.exit(0)
-
       # If there is data, we accept it and print it out
       if (decoded['data']):
         # If we receive data, we assume it's in-order
-        # You will need to do much more here	
+        # You will need to do much more here
         data_dict[decoded['sequence']] = decoded['data']
         log("[recv data] " + str(decoded['sequence']) + " (" + str(len(decoded['data'])) + ") ACCEPTED (in-order)")
-        sys.stdout.write(decoded['data'])
+        #sys.stdout.write(decoded['data'])
 
       # Send back an ack to the sender
       msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])})
