@@ -51,7 +51,9 @@ while True:
     try:
       #data.replace('\u', '\\u')
       #data.decode('utf-8', errors='ignore').encode('utf-8')
-      decoded = json.loads(data)
+      decoded = data.decode("ascii")
+      decoded = json.loads(decoded)
+      #decoded = decoded.decode("ascii")
       # If the EOF flag is set, exit
       if (decoded['eof']):
         log("[completed]")
@@ -73,7 +75,7 @@ while True:
         #sys.stdout.write(decoded['data'])
 
       # Send back an ack to the sender
-      msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])})
+      msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])}, ensure_ascii=False)
       log("ABOUT TO SEND " + msg)
       if sock.sendto(msg, addr) < len(msg):
         log("[error] unable to fully send packet")
