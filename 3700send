@@ -82,18 +82,9 @@ window = 4
 while True:
   log("ABOUT TO SLEEP")
   result = ""
-  #ready = []
-  #ready.append(False)
-  #window -= 1
-  # See if there is an ack coming in, and log it if we get one.
-  #if window == 0:
   ready = select.select([sock], [], [], .2)
   if ready[0]:
     result = sock.recvfrom(MSG_SIZE)
-    #result2 = sock.recvfrom(MSG_SIZE)
-    print(result)
-    #print(result2)
-  #if result:
     (data, addr) = result
     try:
       decoded = json.loads(data)
@@ -110,19 +101,15 @@ while True:
   else:
     if (not send_next_packet(packets_sent)):
       break
-    #log("[error] timeout")
-    #sys.exit(-1)
 
 no_acks_back = []
 # Assemble a list of unreceived acks
 for key in packets_sent:
   if not (str(key) in acks_recvd):
     no_acks_back.append(key)
-#print("Didn't receieve", no_acks_back)
 
 # While we still have sequnce numbers that we haven't received an ack for try to send.
 while len(no_acks_back) > 0:
-  #print(no_acks_back)
   for ii in no_acks_back:
     if sock.sendto(json.dumps(packets_sent[ii], ensure_ascii=False), dest) < len(json.dumps(packets_sent[ii], ensure_ascii=False)):
       log("[error] unable to fully send packet")

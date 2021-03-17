@@ -1,0 +1,99 @@
+#!/bin/bash
+
+[ "$DEBUG" == "1" ] && set -x
+set -ueE
+
+HOST_KHOURY='login.ccs.neu.edu'
+COURSE_NAME='cs3700f20'
+
+PACK_PATH=`mktemp /tmp/XXXXXXXX.tgz`
+
+TARGET_DIR=''
+PROJECT_NAME=''
+KHOURY_USER=''
+
+function failure {
+  echo "Error: This script has failed somewhere and must now exit"
+  echo "Please attempt to resubmit in 10-15 minutes"
+  echo "If this is not the first time you've recieved this message, please contact Course Staff with your shell output for assistance."
+  echo "$1:$2"
+}
+trap 'failure $LINENO $?' ERR
+
+function check_remote_key {
+  set +e
+  if ! ssh-keygen -F $HOST_KHOURY >/dev/null ; then
+    ssh-keyscan login.ccs.neu.edu >> ~/.ssh/known_hosts 2>/dev/null
+  fi
+  set -e
+}
+
+function cleanup {
+  export -n SSHPASS
+  [ -f $PACK_PATH ] && rm -f $PACK_PATH
+}
+trap cleanup EXIT
+
+function read_args {
+  if [[ $# != 2 ]]; then
+    echo "Usage: $0 <project_name> <project_dir>"
+    exit 1
+  fi
+  PROJECT_NAME="$1"
+  TARGET_DIR=`realpath $2`
+}
+
+function check_args {
+  if [[ ! -e $TARGET_DIR ]]; then
+    echo "Invalid path for project source \"$TARGET_DIR\": No such path"
+    trap "{ exit ;}" ERR
+    exit 1
+  elif [[ ! -d $TARGET_DIR ]]; then
+    echo "Invalid path for project source \"$TARGET_DIR\": Not a directory"
+    trap "{ exit ;}" ERR
+    exit 1
+elif [[ ! $PROJECT_NAME =~ project[1-6](-milestone)? ]]; then
+    echo "Bad project number: \"$PROJECT_NAME\": Should match ~\"project[1-6]\""
+    trap "{ exit ;}" ERR
+    exit 1
+  fi
+}
+
+function prompt_username {
+  echo 'CS37000 Remote Project Submission Script'
+  echo ''
+  echo 'This is a utility script for assisting in remotely submitting projects to khoury servers'
+  echo 'You must have a Khoury login in order to use this script; your MyNortheastern credentials will not work'
+  echo 'If you do not have a Khoury login, please apply for an account at <https://my.khoury.northeastern.edu/account/apply>'
+  echo ''
+
+  read -p 'Enter your Khoury Username: ' KHOURY_USER
+  read -s -p 'Enter your Khoury Password: ' SSHPASS
+  echo ''
+  export SSHPASS
+}
+
+function package_project {
+  pushd $(dirname $TARGET_DIR) >/dev/null
+  tar -C $TARGET_DIR -czf $PACK_PATH $(ls $TARGET_DIR)
+  popd >/dev/null
+}
+
+function scpproject {
+  sshpass -e scp $PACK_PATH $KHOURY_USER@$HOST_KHOURY:$PROJECT_NAME.tgz
+}
+
+function sshsubmit {
+  sshpass -e ssh $KHOURY_USER@$HOST_KHOURY mkdir $PROJECT_NAME
+  sshpass -e ssh $KHOURY_USER@$HOST_KHOURY tar -C $PROJECT_NAME -xzvf $PROJECT_NAME.tgz
+  sshpass -e ssh -t $KHOURY_USER@$HOST_KHOURY /course/$COURSE_NAME/bin/turnin $PROJECT_NAME $PROJECT_NAME
+  sshpass -e ssh $KHOURY_USER@$HOST_KHOURY rm -rf $PROJECT_NAME $PROJECT_NAME.tgz
+}
+
+check_remote_key
+read_args $*
+check_args
+prompt_username
+package_project
+scpproject
+sshsubmit

@@ -49,11 +49,8 @@ while True:
   if result:
     (data, addr) = result
     try:
-      #data.replace('\u', '\\u')
-      #data.decode('utf-8', errors='ignore').encode('utf-8')
       decoded = data.decode("ascii")
       decoded = json.loads(decoded)
-      #decoded = decoded.decode("ascii")
       # If the EOF flag is set, exit
       if (decoded['eof']):
         log("[completed]")
@@ -62,9 +59,9 @@ while True:
         for ii in sorted (data_dict):
           final_answer += str(data_dict[ii])
         # Print out the data in the packets as one large output.
-        #print("Final asnwer ", final_answer[:-1])
         sys.stdout.write(final_answer)
-        sock.sendto("BYE", addr)
+        for i in range(11):
+	  sock.sendto("BYE", addr) 
         sys.exit(0)
       # If there is data, we accept it and print it out
       if (decoded['data']):
@@ -72,7 +69,6 @@ while True:
         # You will need to do much more here
         data_dict[decoded['sequence']] = decoded['data']
         log("[recv data] " + str(decoded['sequence']) + " (" + str(len(decoded['data'])) + ") ACCEPTED (in-order)")
-        #sys.stdout.write(decoded['data'])
 
       # Send back an ack to the sender
       msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])}, ensure_ascii=False)
