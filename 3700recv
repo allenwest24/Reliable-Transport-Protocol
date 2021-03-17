@@ -6,6 +6,7 @@ import time
 import datetime
 import select
 import json
+import zlib
 
 def log(string):
   sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
@@ -49,7 +50,8 @@ while True:
   if result:
     (data, addr) = result
     try:
-      decoded = data.decode("ascii")
+      decMsg = zlib.decompress(data)
+      decoded = decMsg.decode("ascii")
       decoded = json.loads(decoded)
       # If the EOF flag is set, exit
       if (decoded['eof']):

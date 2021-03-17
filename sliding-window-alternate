@@ -6,6 +6,7 @@ import time
 import datetime
 import select
 import json
+import zlib
 
 # Defining constants.
 MSG_SIZE = 1500
@@ -53,11 +54,12 @@ def send_next_packet(packets_sent):
     msg_as_json = {"sequence": SEQUENCE, "data": data, "ack": False, "eof": False}
     #print(sys.getsizeof({"sequence": SEQUENCE, "data": None, "ack": False, "eof": False}))
     msg = json.dumps({"sequence": SEQUENCE, "data": data, "ack": False, "eof": False}, ensure_ascii=False)
-    msg = msg.encode("ascii")
+    msg2 = msg.encode("ascii")
     SEQUENCE += len(data)
     #print(len(msg))
     #print(sys.getsizeof(msg))
-    if sock.sendto(msg, dest) < len(msg):
+    
+    if sock.sendto(zlib.compress(msg2), dest) < len(msg):
       log("[error] unable to fully send packet")
     else:
       log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
@@ -115,7 +117,10 @@ for key in packets_sent:
 # While we still have sequnce numbers that we haven't received an ack for try to send.
 while len(no_acks_back) > 0:
   for ii in no_acks_back:
-    if sock.sendto(json.dumps(packets_sent[ii], ensure_ascii=False), dest) < len(json.dumps(packets_sent[ii], ensure_ascii=False)):
+    compMsg = json.dumps(packets_sent[ii], ensure_ascii=False)
+    encoded = compMsg.encode("ascii")
+    compMsg2 = zlib.compress(encoded)
+    if sock.sendto(compMsg2, dest) < len(json.dumps(packets_sent[ii], ensure_ascii=False)):
       log("[error] unable to fully send packet")
     else:
       log("[send data] " + str(ii) + " (" + str(len(packets_sent[ii]["data"])) + ")")
@@ -139,7 +144,10 @@ done = False
 c = 0
 while (not done) or (c == 6):
   c += 1
-  sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}, ensure_ascii=False), dest)
+  jsonX = json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}, ensure_ascii=False)
+  encoded2 = jsonX.encode("ascii")
+  compMsg3 = zlib.compress(encoded2)
+  sock.sendto(compMsg3, dest)
   final_ready = select.select([sock], [], [], .2)
   #out = proc.stdout.readline()
   if final_ready[0]:

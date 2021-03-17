@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 
-my $SEND = "3700send";
+my $SEND = "sliding-window-alternate";
 my $RECV = "3700recv";
 my $NETSIM = "/usr/local/sbin/netsim";
 my $RUN = "/usr/local/bin/nettest";
-
+print "${SEND}";
 if (! (-e $SEND)) {
   die("Unable to find executable '$SEND'.\n");
 }
