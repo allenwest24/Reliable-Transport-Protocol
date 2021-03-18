@@ -83,10 +83,10 @@ window_counter = 0
 while True:
   window_counter = window_counter + 1
   if not send_next_packet(packets_sent):
-    window_counter = 1
+    window_counter = 8
     isDone = True
 
-  if window_counter == 1:
+  if window_counter == 8:
     window_counter = 0
     log("ABOUT TO SLEEP")
     result = ""
@@ -111,28 +111,34 @@ no_acks_back = []
 for key in packets_sent:
   if not (str(key) in acks_recvd):
     no_acks_back.append(key)
+#print("Didn't receieve", no_acks_back)
 
 # While we still have sequnce numbers that we haven't received an ack for try to send.
+window_counter = 0
 while len(no_acks_back) > 0:
   for ii in no_acks_back:
+    window_counter += 1
     if sock.sendto(json.dumps(packets_sent[ii], ensure_ascii=False), dest) < len(json.dumps(packets_sent[ii], ensure_ascii=False)):
       log("[error] unable to fully send packet")
     else:
       log("[send data] " + str(ii) + " (" + str(len(packets_sent[ii]["data"])) + ")")
-      # Redo the select.select and if successful, remove from noackback
-      log("ABOUT TO SLEEP")
-      result = ""
-      ready = select.select([sock], [], [], .2)
-      if ready[0]:
-        result = sock.recvfrom(MSG_SIZE)
-        (data, addr) = result
-        try:
-          decoded = json.loads(data)
-          if decoded['ack'] == ii:
-            log("[recv ack] " + str(ii))
-            del no_acks_back[no_acks_back.index(ii)]
-        except (ValueError, KeyError, TypeError):
-          log("[recv corrupt packet]")
+      if window_counter == 8 or ii == len(no_acks_back) - 1:
+        window_counter = 0
+        # Redo the select.select and if successful, remove from noackback
+        log("ABOUT TO SLEEP")
+        result = ""
+        ready = select.select([sock], [], [], .2)
+        while ready[0]:
+          result = sock.recvfrom(MSG_SIZE)
+          (data, addr) = result
+          try:
+            decoded = json.loads(data)
+            if decoded['ack'] == ii:
+              log("[recv ack] " + str(ii))
+              del no_acks_back[no_acks_back.index(ii)]
+          except (ValueError, KeyError, TypeError):
+            log("[recv corrupt packet]")
+          ready = select.select([sock], [], [], .2)
 
 # Make sure they get the eof.
 done = False
