@@ -1,0 +1,92 @@
+#!/usr/bin/python -u
+
+import sys
+import socket
+import time
+import datetime
+import select
+import json
+import struct
+
+def log(string):
+  sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+
+MSG_SIZE = 1500
+TIMEOUT = 30
+
+# Bind to localhost and an ephemeral port
+UDP_IP = "127.0.0.1"
+# If there was a specified port number, connect to it.
+if (len(sys.argv) == 2):
+  # Connect only if an integer value was given, otherwise throw an error and print to console.
+  try:
+    UDP_PORT = int(sys.argv[1])
+  except:
+    sys.exit("Error - The port number must be an integer.")
+# TODO: Ask prof if it should pick random port like the starter code if not specified.
+elif (len(sys.argv) == 1):
+  UDP_PORT = 0
+# If there are any other amounts of arguments, throw a usage error and print to console.
+else:
+  sys.exit("Usage: ./3700recv <port>")
+
+# Set up the socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+sock.settimeout(TIMEOUT)
+
+# Set up dictionary.
+data_dict = {}
+sequence = []
+
+# Get port we bound to
+UDP_PORT = sock.getsockname()[1]
+log("[bound] " + str(UDP_PORT))
+
+# Now listen for packets
+while True:
+  result = sock.recvfrom(MSG_SIZE)
+  # If nothing is ready, we hit the timeout
+  if result:
+    (data, addr) = result
+    size = len(data) - 10
+    try:
+      #decoded = data.decode("ascii")
+      #decoded = json.loads(decoded)
+      decoded = struct.unpack("l" + str(size) + "s??", data)
+      # If the EOF flag is set, exit
+      #if (decoded['eof']):
+      if (decoded[3]):
+        log("[completed]")
+        final_answer = ""
+        # Order the packets using sequence number.
+        for ii in sorted (data_dict):
+          final_answer += str(data_dict[ii])
+        # Print out the data in the packets as one large output.
+        sys.stdout.write(final_answer)
+        for jj in range(11):
+          sock.sendto("BYE", addr)
+        sys.exit(0)
+      # If there is data, we accept it and print it out
+      #if (decoded['data']):
+      if (decoded[1]):
+        # If we receive data, we assume it's in-order
+        # You will need to do much more here
+        #data_dict[decoded['sequence']] = decoded['data']
+        data_dict[decoded[0]] = decoded[1]
+        #log("[recv data] " + str(decoded['sequence']) + " (" + str(len(decoded['data'])) + ") ACCEPTED (in-order)")
+        log("[recv data] " + str(decoded[0]) + " (" + str(len(decoded[1])) + ") ACCEPTED (in-order)")
+
+      # Send back an ack to the sender
+      #msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])}, ensure_ascii=False)
+      msg = struct.pack("lsl?", 0, "a", decoded[0] + len(decoded[1]), False)
+      log("ABOUT TO SEND " + msg)
+      if sock.sendto(msg, addr) < len(msg):
+        log("[error] unable to fully send packet")
+
+    except (ValueError, KeyError, TypeError) as e:
+      log("[recv corrupt packet]")
+      raise e
+  else:
+    log("[error] timeout")
+    sys.exit(-1)
