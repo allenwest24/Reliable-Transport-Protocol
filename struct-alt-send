@@ -1,0 +1,153 @@
+#!/usr/bin/python -u
+
+import sys
+import socket
+import time
+import datetime
+import select
+import json
+import struct
+
+# Defining constants.
+MSG_SIZE = 1500
+# TODO: Decide on best value for DATA_SIZE.
+# This was decresed to 400 to get around the json crap.
+DATA_SIZE = 1490 #1472 - 280
+# Prev value was 30
+TIMEOUT = 5
+SEQUENCE = 0
+
+# Ensure is exactly one argument.
+if not(len(sys.argv) == 2):
+  sys.exit("Usage: ./3700send [ip.add.re.ss]:[port]")
+# Bind to localhost and an ephemeral port.
+IP_PORT = sys.argv[1]
+# If there is an ip:port pairing, separate, otherwise exit.
+if (":" in IP_PORT):
+  # Get IP.
+  UDP_IP = IP_PORT[0:IP_PORT.find(":")]
+  # Get integer value port.
+  try:
+    UDP_PORT = int(IP_PORT[IP_PORT.find(":")+1:])
+  # If port given is not an integer exit with message.
+  except:
+    sys.exit("Specified port must be an integer.")
+  # Create a destination ip:port tuple -> (ip, port)
+  dest = (UDP_IP, UDP_PORT)
+else:
+  sys.exit("Usage: ./3700send [ip.add.re.ss]:[port]")
+
+# Set up the socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.settimeout(TIMEOUT)
+
+# Log to stderr
+def log(string):
+  sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+
+# Send the next packet by increasing sequence numbers.
+def send_next_packet(packets_sent):
+  global SEQUENCE
+
+  data = sys.stdin.read(DATA_SIZE)
+  if (len(data) > 0):
+    #msg_as_json = {"sequence": SEQUENCE, "data": data, "ack": False, "eof": False}
+    msg_as_struct = struct.pack("l" + str(len(data)) + "s??", SEQUENCE, data, False, False)
+    print("full struct size", len(msg_as_struct))
+    print("size of struct without message", len(struct.pack("l??", SEQUENCE, False, False)))
+    #msg = json.dumps({"sequence": SEQUENCE, "data": data, "ack": False, "eof": False}, ensure_ascii=False)
+    #msg = msg.encode("ascii")
+    SEQUENCE += len(data)
+    if sock.sendto(msg_as_struct, dest) < len(msg_as_struct):
+      log("[error] unable to fully send packet")
+    else:
+      log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
+      # We want to keep track of all the packets we sent so we can index them if their respective ack wasnt receieved.
+      packets_sent[SEQUENCE] = msg_as_struct # was msg_as_json
+    return True
+  else:
+    return False
+
+# Keep track of the ack packets sent back from the client.
+# Stores the ssequence number of the ack
+acks_recvd = []
+# Key = sequence#
+# Val = packet to be potentially sent again
+packets_sent = {}
+
+# Send first packet
+send_next_packet(packets_sent)
+
+window = 4
+# Now read in data, send packets
+while True:
+  log("ABOUT TO SLEEP")
+  result = ""
+  ready = select.select([sock], [], [], .2)
+  if ready[0]:
+    result = sock.recvfrom(MSG_SIZE)
+    (data, addr) = result
+    try:
+      # decoded = json.loads(data)
+      decoded = struct.unpack("lsl?", data)
+      # If there is an ack, send next packet
+      # if decoded["ack"] == SEQUENCE:
+      if decoded[2] == SEQUENCE: # "ack"
+        log("[recv ack] " + str(SEQUENCE))
+        acks_recvd.append(str(SEQUENCE))
+
+        # Try to send next packet; break if no more data
+        if (not send_next_packet(packets_sent)):
+          break
+    except (ValueError, KeyError, TypeError):
+      log("[recv corrupt packet]")
+  else:
+    if (not send_next_packet(packets_sent)):
+      break
+
+no_acks_back = []
+# Assemble a list of unreceived acks
+for key in packets_sent:
+  if not (str(key) in acks_recvd):
+    no_acks_back.append(key)
+
+# While we still have sequnce numbers that we haven't received an ack for try to send.
+while len(no_acks_back) > 0:
+  for ii in no_acks_back:
+    #if sock.sendto(json.dumps(packets_sent[ii], ensure_ascii=False), dest) < len(json.dumps(packets_sent[ii], ensure_ascii=False)):
+    if sock.sendto(struct.pack(packets_sent[ii]), dest) < len(struct.pack(packets_sent[ii])):
+      log("[error] unable to fully send packet")
+    else:
+      log("[send data] " + str(ii) + " (" + str(len(packets_sent[ii]["data"])) + ")")
+      # Redo the select.select and if successful, remove from noackback
+      log("ABOUT TO SLEEP")
+      result = ""
+      ready = select.select([sock], [], [], .2)
+      if ready[0]:
+        result = sock.recvfrom(MSG_SIZE)
+        (data, addr) = result
+        try:
+          #decoded = json.loads(data)
+          decoded = struct.unpack("lll?", data)
+          #if decoded['ack'] == ii:
+          if decoded[2] == i:
+            log("[recv ack] " + str(ii))
+            del no_acks_back[no_acks_back.index(ii)]
+        except (ValueError, KeyError, TypeError):
+          log("[recv corrupt packet]")
+
+# Make sure they get the eof.
+done = False
+c = 0
+while (not done) or (c == 6):
+  c += 1
+  #sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}, ensure_ascii=False), dest)
+  sock.sendto(struct.pack("ll??", SEQUENCE, 0, False, True), dest)
+  final_ready = select.select([sock], [], [], .2)
+  #out = proc.stdout.readline()
+  if final_ready[0]:
+    final_result = sock.recvfrom(MSG_SIZE)
+    if final_result[0] == "BYE":
+       done = True
+
+sys.exit(0)
