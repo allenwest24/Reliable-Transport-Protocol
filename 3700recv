@@ -22,7 +22,6 @@ if (len(sys.argv) == 2):
     UDP_PORT = int(sys.argv[1])
   except:
     sys.exit("Error - The port number must be an integer.")
-# TODO: Ask prof if it should pick random port like the starter code if not specified.
 elif (len(sys.argv) == 1):
   UDP_PORT = 0
 # If there are any other amounts of arguments, throw a usage error and print to console.
